@@ -2,42 +2,43 @@ import argparse
 import hashlib
 import json
 import sys
-from typing import Callable
 from urllib.error import URLError
-from urllib import request
+
+import requests
 
 
-PWNED_PASSWORDS_RANGE_URL = "https://api.pwnedpasswords.com/range/{}"
+PWNED_PASSWORDS_RANGE_URL = "https://api.pwnedpasswords.com/range/"
 
 
-def sha1_hash(value: str) -> str:
+def sha1_hash(value):
     return hashlib.sha1(value.encode("utf-8")).hexdigest().upper()
 
 
-def parse_pwned_response(response_text: str, target_suffix: str) -> int:
+def parse_pwned_response(response_text, target_suffix):
     target = target_suffix.upper()
     for line in response_text.splitlines():
         if not line:
             continue
-        suffix, _, count = line.partition(":")
-        if suffix.upper() == target:
+        hash_suffix, count = line.split(":")
+        if hash_suffix.upper() == target:
             return int(count)
     return 0
 
 
-def _default_http_get(url: str) -> str:
-    with request.urlopen(url, timeout=10) as response:
-        return response.read().decode("utf-8")
+def _default_http_get(url):
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.text
 
 
-def check_password_exposure(secret: str, http_get: Callable[[str], str] = _default_http_get) -> int:
+def check_password_exposure(secret, http_get=_default_http_get):
     hashed_password = sha1_hash(secret)
     prefix, suffix = hashed_password[:5], hashed_password[5:]
-    response_text = http_get(PWNED_PASSWORDS_RANGE_URL.format(prefix))
+    response_text = http_get(PWNED_PASSWORDS_RANGE_URL + prefix)
     return parse_pwned_response(response_text, suffix)
 
 
-def ai_dark_web_assessment(breach_count: int) -> str:
+def ai_dark_web_assessment(breach_count):
     if breach_count <= 0:
         return "AI assessment: No dark-web exposure found for this submitted credential."
     if breach_count < 100:
@@ -47,7 +48,7 @@ def ai_dark_web_assessment(breach_count: int) -> str:
     return "AI assessment: Critical risk. This credential is widely exposed on the dark web."
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(
         description="Check whether a password appears in dark-web breach data via HaveIBeenPwned."
     )
