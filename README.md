@@ -27,6 +27,7 @@ python monitor.py password1 password2 --output-csv
 
 - `monitor_results.json` when `--json` is set
 - `monitor_results.csv` when `--output-csv` is set
+- Monitor output stores `password_id` references instead of raw passwords.
 
 ### Environment configuration
 

@@ -24,11 +24,11 @@ def export_json(results: List[Dict[str, Any]]) -> None:
 def export_csv(results: List[Dict[str, Any]]) -> None:
     with open("monitor_results.csv", "w", newline="", encoding="utf-8") as outfile:
         writer = csv.writer(outfile)
-        writer.writerow(["Password", "RiskScore", "RiskLevel", "LeakCount", "Signals", "SourceErrors"])
+        writer.writerow(["PasswordID", "RiskScore", "RiskLevel", "LeakCount", "Signals", "SourceErrors"])
         for result in results:
             writer.writerow(
                 [
-                    result["password"],
+                    result["password_id"],
                     result["risk_score"],
                     result["risk_level"],
                     result["total_leak_count"],
@@ -45,13 +45,13 @@ def main() -> None:
         return
 
     monitor = build_default_monitor()
-    results = [monitor.scan_password(password) for password in args.passwords]
+    results: List[Dict[str, Any]] = []
+    for index, password in enumerate(args.passwords, start=1):
+        result = monitor.scan_password(password)
+        result["password_id"] = index
+        results.append(result)
 
-    for result in results:
-        print(
-            f"{result['password']}: {result['risk_level']} "
-            f"(score={result['risk_score']}, leaks={result['total_leak_count']})"
-        )
+    print(f"Completed monitoring for {len(results)} password(s).")
 
     if args.json:
         export_json(results)

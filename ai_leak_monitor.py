@@ -21,7 +21,7 @@ class LeakRecord:
 class BaseSource:
     source_name = "base"
 
-    def lookup(self, password: str) -> List[LeakRecord]:
+    def lookup(self, password: str, sha1_hash_upper: str) -> List[LeakRecord]:
         raise NotImplementedError
 
 
@@ -33,8 +33,7 @@ class HIBPPasswordSource(BaseSource):
         self.retries = retries
         self.backoff_seconds = backoff_seconds
 
-    def _sha1_range_lookup(self, password: str) -> int:
-        sha1_hash_upper = hashlib.sha1(password.encode()).hexdigest().upper()
+    def _sha1_range_lookup(self, sha1_hash_upper: str) -> int:
         prefix, suffix = sha1_hash_upper[:5], sha1_hash_upper[5:]
         url = f"https://api.pwnedpasswords.com/range/{prefix}"
 
@@ -53,8 +52,8 @@ class HIBPPasswordSource(BaseSource):
                 time.sleep(self.backoff_seconds * (attempt + 1))
         return 0
 
-    def lookup(self, password: str) -> List[LeakRecord]:
-        count = self._sha1_range_lookup(password)
+    def lookup(self, password: str, sha1_hash_upper: str) -> List[LeakRecord]:
+        count = self._sha1_range_lookup(sha1_hash_upper)
         if count <= 0:
             return []
         return [
@@ -78,8 +77,7 @@ class ThreatIntelFeedSource(BaseSource):
         self.retries = retries
         self.backoff_seconds = backoff_seconds
 
-    def lookup(self, password: str) -> List[LeakRecord]:
-        sha1_hash_upper = hashlib.sha1(password.encode()).hexdigest().upper()
+    def lookup(self, password: str, sha1_hash_upper: str) -> List[LeakRecord]:
         params = {"sha1": sha1_hash_upper, "sha1_prefix": sha1_hash_upper[:5]}
         headers = {"X-API-Key": self.api_key}
 
@@ -141,12 +139,10 @@ class LocalDatasetSource(BaseSource):
         self._cache = [row for row in rows if isinstance(row, dict)]
         return self._cache
 
-    def lookup(self, password: str) -> List[LeakRecord]:
+    def lookup(self, password: str, sha1_hash_upper: str) -> List[LeakRecord]:
         rows = self._load()
         if not rows:
             return []
-
-        sha1_hash_upper = hashlib.sha1(password.encode()).hexdigest().upper()
         records: List[LeakRecord] = []
 
         for row in rows:
@@ -288,17 +284,17 @@ class LeakMonitor:
     def scan_password(self, password: str) -> Dict[str, Any]:
         all_records: List[LeakRecord] = []
         source_errors: List[str] = []
+        sha1_hash_upper = hashlib.sha1(password.encode()).hexdigest().upper()
 
         for source in self.sources:
             self._rate_limit()
             try:
-                all_records.extend(source.lookup(password))
+                all_records.extend(source.lookup(password, sha1_hash_upper))
             except Exception:
                 source_errors.append(source.source_name)
 
         analysis = self.analyzer.score(password, all_records)
         return {
-            "password": password,
             "risk_score": analysis["risk_score"],
             "risk_level": analysis["risk_level"],
             "signals": analysis["signals"],
