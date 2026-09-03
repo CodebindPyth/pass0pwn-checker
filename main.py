@@ -40,6 +40,12 @@ def risk_level(count):
     return "Critical risk: massively exposed password."
 
 
+def mask_password(value):
+    if len(value) <= 2:
+        return "*" * len(value)
+    return f"{value[0]}{'*' * (len(value) - 2)}{value[-1]}"
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description="Simple password breach checker")
     parser.add_argument("passwords", nargs="*", help="Passwords to check")
@@ -71,27 +77,28 @@ def main():
         raise SystemExit(1)
 
     results = []
-    for password in passwords:
+    for index, password in enumerate(passwords, start=1):
+        password_hint = mask_password(password)
         try:
             count = get_password_leaks(password)
             result = {
-                "password": password,
+                "password_hint": password_hint,
                 "count": count,
                 "exposed": count > 0,
                 "risk": risk_level(count),
             }
             results.append(result)
-            print(f"{password}: {count} leaks -> {result['risk']}")
+            print(f"Password #{index} ({password_hint}): {count} leaks -> {result['risk']}")
         except RequestException as error:
             result = {
-                "password": password,
+                "password_hint": password_hint,
                 "count": None,
                 "exposed": None,
                 "risk": "Could not check password right now.",
                 "error": str(error),
             }
             results.append(result)
-            print(f"{password}: error checking breach data ({error})")
+            print(f"Password #{index} ({password_hint}): error checking breach data ({error})")
 
     if args.json_file:
         with open(args.json_file, "w", encoding="utf-8") as outfile:
@@ -101,11 +108,11 @@ def main():
     if args.csv_file:
         with open(args.csv_file, "w", newline="", encoding="utf-8") as outfile:
             writer = csv.writer(outfile)
-            writer.writerow(["Password", "Count", "Exposed", "Risk", "Error"])
+            writer.writerow(["Password Hint", "Count", "Exposed", "Risk", "Error"])
             for item in results:
                 writer.writerow(
                     [
-                        item["password"],
+                        item["password_hint"],
                         item["count"],
                         item["exposed"],
                         item["risk"],
