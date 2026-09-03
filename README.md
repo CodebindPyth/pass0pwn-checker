@@ -1,9 +1,15 @@
 # pass0pwn-checker
-A Python CLI tool to check if passwords have been exposed in data breaches using the HaveIBeenPwned API and K-Anonymity for maximum privacy. Supports JSON/CSV exports.
+A Python CLI tool to check if passwords have been exposed in dark-web/data-breach dumps using the HaveIBeenPwned API and K-Anonymity for privacy.
 
-## Existing password breach checker
+## CLI usage
 
-`main.py` remains unchanged and checks breach counts from HaveIBeenPwned.
+```bash
+python pass0pwn_checker.py "your-password" --ai
+```
+
+Options:
+- `--json` for machine-readable JSON output
+- `--ai` for an AI-style risk assessment message
 
 ## AI leak monitor (new)
 
@@ -15,7 +21,7 @@ Use `monitor.py` to scan passwords with a multi-source risk engine:
 
 The monitor combines leak frequency, source confidence, recency, and pattern similarity into a risk score and risk level.
 
-### Usage
+### Monitor usage
 
 ```bash
 python monitor.py password1 password2
@@ -23,7 +29,7 @@ python monitor.py password1 password2 --json
 python monitor.py password1 password2 --output-csv
 ```
 
-### Output files
+### Monitor output files
 
 - `monitor_results.json` when `--json` is set
 - `monitor_results.csv` when `--output-csv` is set
