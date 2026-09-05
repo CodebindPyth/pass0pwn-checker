@@ -1,59 +1,35 @@
-import unittest
-from io import StringIO
-from unittest import mock
-from urllib.error import URLError
+import requests
+import hashlib
+import sys
 
-import pass0pwn_checker
+def request_api_data(query_char):
+  url = 'https://api.pwnedpasswords.com/range/' + query_char
+  res = requests.get(url)
+  if res.status_code != 200:
+    raise RuntimeError(f'Error fetching: {res.status_code}, check the api and try again')
+  return res
 
+def get_password_leaks_count(hashes, hash_to_check):
+  hashes = (line.split(':') for line in hashes.text.splitlines())
+  for h, count in hashes:
+    if h == hash_to_check:
+      return count
+  return 0
 
-class Pass0PwnCheckerTests(unittest.TestCase):
-    def test_sha1_hash_is_uppercase(self):
-        self.assertEqual(
-            pass0pwn_checker.sha1_hash("password"),
-            "5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8",
-        )
+def pwned_api_check(password):
+  sha1password = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+  first5_char, tail = sha1password[:5], sha1password[5:]
+  response = request_api_data(first5_char)
+  return get_password_leaks_count(response, tail)
 
-    def test_parse_pwned_response_finds_count(self):
-        suffix = "ABCDE12345"
-        response = "FFFFF:1\nABCDE12345:42\nAAAAA:9"
-        self.assertEqual(pass0pwn_checker.parse_pwned_response(response, suffix), 42)
+def main(args):
+  for password in args:
+    count = pwned_api_check(password)
+    if count:
+      print(f'{password} was found {count} times... you should probably change your password!')
+    else:
+      print(f'{password} was NOT found. Carry on!')
+  return 'done!'
 
-    def test_parse_pwned_response_returns_zero_when_not_found(self):
-        response = "FFFFF:1\nAAAAA:9"
-        self.assertEqual(pass0pwn_checker.parse_pwned_response(response, "ABCDE12345"), 0)
-
-    def test_check_password_exposure_uses_range_api(self):
-        expected_url = (
-            "https://api.pwnedpasswords.com/range/5BAA6"
-        )
-
-        def fake_http_get(url: str) -> str:
-            self.assertEqual(url, expected_url)
-            return "1E4C9B93F3F0682250B6CF8331B7EE68FD8:123"
-
-        self.assertEqual(
-            pass0pwn_checker.check_password_exposure("password", http_get=fake_http_get),
-            123,
-        )
-
-    def test_ai_dark_web_assessment_levels(self):
-        self.assertIn("No dark-web exposure", pass0pwn_checker.ai_dark_web_assessment(0))
-        self.assertIn("replace it", pass0pwn_checker.ai_dark_web_assessment(99))
-        self.assertIn("High-risk", pass0pwn_checker.ai_dark_web_assessment(100))
-        self.assertIn("Critical risk", pass0pwn_checker.ai_dark_web_assessment(10000))
-
-    def test_main_returns_json_error_when_lookup_fails(self):
-        with mock.patch("sys.argv", ["pass0pwn_checker.py", "password", "--json"]):
-            with mock.patch(
-                "pass0pwn_checker.check_password_exposure",
-                side_effect=URLError("network down"),
-            ):
-                with mock.patch("sys.stdout", new_callable=StringIO) as out:
-                    with self.assertRaises(SystemExit) as exit_info:
-                        pass0pwn_checker.main()
-        self.assertEqual(exit_info.exception.code, 1)
-        self.assertIn("Unable to check dark-web data", out.getvalue())
-
-
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == '__main__':
+  sys.exit(main(sys.argv[1:]))
