@@ -4,9 +4,6 @@ A Python CLI tool to check if passwords have been exposed in dark-web/data-breac
 ## Usage
 
 ```bash
-python pass0pwn_checker.py "your-password" --ai
+python pass0pwn_checker.py "your-password" 
 ```
 
-Options:
-- `--json` for machine-readable JSON output
-- `--ai` for an AI-style risk assessment message
